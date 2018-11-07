@@ -215,6 +215,11 @@ public class DefaultGradleDistribution implements GradleDistribution {
     }
 
     @Override
+    public boolean isToolingApiMergesStderrIntoStdout() {
+        return isSameOrNewer("4.7") && isSameOrOlder("5.0");
+    }
+
+    @Override
     public boolean isToolingApiLogsConfigureSummary() {
         return isSameOrNewer("2.14");
     }

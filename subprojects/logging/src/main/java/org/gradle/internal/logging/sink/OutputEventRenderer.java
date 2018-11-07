@@ -159,22 +159,11 @@ public class OutputEventRenderer implements OutputEventListener, LoggingRouter {
             StandardOutputListener outputListener = new StreamBackedStandardOutputListener(outputStream);
             StandardOutputListener errorListener = new StreamBackedStandardOutputListener(errorStream);
             if (consoleOutput == ConsoleOutput.Plain) {
-                addPlainConsole(outputListener, errorListener, consoleMetadata != null && (consoleMetadata.isStdErr() && consoleMetadata.isStdOut()));
+                addPlainConsole(outputListener, errorListener, false);
             } else {
-                if (consoleMetadata == null) {
-                    consoleMetadata = FallbackConsoleMetaData.INSTANCE;
-                }
-                Console console;
-                if (consoleMetadata.isStdOut()) {
-                    OutputStreamWriter writer = new OutputStreamWriter(outputStream);
-                    console =new AnsiConsole(writer, writer, getColourMap(), consoleMetadata, true);
-                } else if (consoleMetadata.isStdErr()) {
-                    OutputStreamWriter writer = new OutputStreamWriter(errorStream);
-                    console =new AnsiConsole(writer, writer, getColourMap(), consoleMetadata, true);
-                } else {
-                    console = null;
-                }
-                addRichConsole(console, consoleMetadata.isStdOut(), consoleMetadata.isStdErr(), outputListener, errorListener, consoleMetadata, consoleOutput == ConsoleOutput.Verbose);
+                OutputStreamWriter writer = new OutputStreamWriter(outputStream);
+                AnsiConsole console = new AnsiConsole(writer, writer, getColourMap(), consoleMetadata, true);
+                addRichConsole(console, outputListener, errorListener, consoleMetadata, consoleOutput == ConsoleOutput.Verbose);
             }
         }
     }
@@ -246,16 +235,18 @@ public class OutputEventRenderer implements OutputEventListener, LoggingRouter {
         }
     }
 
-    public OutputEventRenderer addRichConsole(Console console, boolean stdoutAttachedToConsole, boolean stderrAttachedToConsole, ConsoleMetaData consoleMetaData) {
-        return addRichConsole(console, stdoutAttachedToConsole, stderrAttachedToConsole, consoleMetaData, false);
+    public OutputEventRenderer addRichConsole(Console console, ConsoleMetaData consoleMetaData) {
+        return addRichConsole(console, consoleMetaData, false);
     }
 
-    public OutputEventRenderer addRichConsole(Console console, boolean stdoutAttachedToConsole, boolean stderrAttachedToConsole, ConsoleMetaData consoleMetaData, boolean verbose) {
-        return addRichConsole(console, stdoutAttachedToConsole, stderrAttachedToConsole, new StreamBackedStandardOutputListener((Appendable) originalStdOut), new StreamBackedStandardOutputListener((Appendable)originalStdErr), consoleMetaData, verbose);
+    public OutputEventRenderer addRichConsole(Console console, ConsoleMetaData consoleMetaData, boolean verbose) {
+        return addRichConsole(console, new StreamBackedStandardOutputListener((Appendable) originalStdOut), new StreamBackedStandardOutputListener((Appendable) originalStdErr), consoleMetaData, verbose);
     }
 
-    private OutputEventRenderer addRichConsole(Console console, boolean stdoutAttachedToConsole, boolean stderrAttachedToConsole, StandardOutputListener outputListener, StandardOutputListener errorListener, ConsoleMetaData consoleMetaData, boolean verbose) {
+    private OutputEventRenderer addRichConsole(Console console, StandardOutputListener outputListener, StandardOutputListener errorListener, ConsoleMetaData consoleMetaData, boolean verbose) {
         OutputEventListener consoleChain;
+        boolean stdoutAttachedToConsole = consoleMetaData.isStdOut();
+        boolean stderrAttachedToConsole = consoleMetaData.isStdErr();
         if (stdoutAttachedToConsole && stderrAttachedToConsole) {
             OutputEventListener consoleListener = new StyledTextOutputBackedRenderer(console.getBuildOutputArea());
             consoleChain = getRichConsoleChain(console, consoleMetaData, verbose, consoleListener);
@@ -276,18 +267,18 @@ public class OutputEventRenderer implements OutputEventListener, LoggingRouter {
 
     private OutputEventListener getRichConsoleChain(Console console, ConsoleMetaData consoleMetaData, boolean verbose, OutputEventListener consoleListener) {
         return throttled(
-            new UserInputConsoleRenderer(
-                new BuildStatusRenderer(
-                    new WorkInProgressRenderer(
-                        new BuildLogLevelFilterRenderer(
-                            new GroupingProgressLogEventGenerator(consoleListener, new PrettyPrefixedLogHeaderFormatter(), verbose)
-                        ),
-                        console.getBuildProgressArea(),
-                        new DefaultWorkInProgressFormatter(consoleMetaData),
-                        new ConsoleLayoutCalculator(consoleMetaData)
-                    ),
-                console.getStatusBar(), console, consoleMetaData),
-            console)
+                new UserInputConsoleRenderer(
+                        new BuildStatusRenderer(
+                                new WorkInProgressRenderer(
+                                        new BuildLogLevelFilterRenderer(
+                                                new GroupingProgressLogEventGenerator(consoleListener, new PrettyPrefixedLogHeaderFormatter(), verbose)
+                                        ),
+                                        console.getBuildProgressArea(),
+                                        new DefaultWorkInProgressFormatter(consoleMetaData),
+                                        new ConsoleLayoutCalculator(consoleMetaData)
+                                ),
+                                console.getStatusBar(), console, consoleMetaData),
+                        console)
         );
     }
 
@@ -300,7 +291,7 @@ public class OutputEventRenderer implements OutputEventListener, LoggingRouter {
     }
 
     private OutputEventListener getPlainConsoleChain(boolean redirectStderr) {
-        return getPlainConsoleChain(new StreamBackedStandardOutputListener((Appendable) originalStdOut), new StreamBackedStandardOutputListener((Appendable)originalStdErr), redirectStderr, true);
+        return getPlainConsoleChain(new StreamBackedStandardOutputListener((Appendable) originalStdOut), new StreamBackedStandardOutputListener((Appendable) originalStdErr), redirectStderr, true);
     }
 
     private OutputEventListener getPlainConsoleChain(StandardOutputListener outputListener, StandardOutputListener errorListener, boolean redirectStderr, boolean verbose) {
@@ -308,13 +299,13 @@ public class OutputEventRenderer implements OutputEventListener, LoggingRouter {
         final OutputEventListener stderrChain = new StyledTextOutputBackedRenderer(new StreamingStyledTextOutput(errorListener));
 
         return throttled(
-            new BuildLogLevelFilterRenderer(
-                new GroupingProgressLogEventGenerator(
-                    new ErrorOutputDispatchingListener(stderrChain, stdoutChain, redirectStderr),
-                    new PrettyPrefixedLogHeaderFormatter(),
-                    verbose
+                new BuildLogLevelFilterRenderer(
+                        new GroupingProgressLogEventGenerator(
+                                new ErrorOutputDispatchingListener(stderrChain, stdoutChain, redirectStderr),
+                                new PrettyPrefixedLogHeaderFormatter(),
+                                verbose
+                        )
                 )
-            )
         );
     }
 
@@ -352,20 +343,20 @@ public class OutputEventRenderer implements OutputEventListener, LoggingRouter {
                 final OutputEventListener stdOutChain = new StyledTextOutputBackedRenderer(new StreamingStyledTextOutput(userStdoutListeners.getSource()));
                 final OutputEventListener stdErrChain = new StyledTextOutputBackedRenderer(new StreamingStyledTextOutput(userStderrListeners.getSource()));
                 userListenerChain = new BuildLogLevelFilterRenderer(
-                    new ProgressLogEventGenerator(new OutputEventListener() {
-                        @Override
-                        public void onOutput(OutputEvent event) {
-                            // Do not forward events for rendering when there are no listeners to receive
-                            if (event instanceof LogLevelChangeEvent) {
-                                stdOutChain.onOutput(event);
-                                stdErrChain.onOutput(event);
-                            } else if (event.getLogLevel() == LogLevel.ERROR && !userStderrListeners.isEmpty() && event instanceof RenderableOutputEvent) {
-                                stdErrChain.onOutput(event);
-                            } else if (event.getLogLevel() != LogLevel.ERROR && !userStdoutListeners.isEmpty() && event instanceof RenderableOutputEvent) {
-                                stdOutChain.onOutput(event);
+                        new ProgressLogEventGenerator(new OutputEventListener() {
+                            @Override
+                            public void onOutput(OutputEvent event) {
+                                // Do not forward events for rendering when there are no listeners to receive
+                                if (event instanceof LogLevelChangeEvent) {
+                                    stdOutChain.onOutput(event);
+                                    stdErrChain.onOutput(event);
+                                } else if (event.getLogLevel() == LogLevel.ERROR && !userStderrListeners.isEmpty() && event instanceof RenderableOutputEvent) {
+                                    stdErrChain.onOutput(event);
+                                } else if (event.getLogLevel() != LogLevel.ERROR && !userStdoutListeners.isEmpty() && event instanceof RenderableOutputEvent) {
+                                    stdOutChain.onOutput(event);
+                                }
                             }
-                        }
-                    })
+                        })
                 );
                 addChain(userListenerChain);
             }

@@ -131,6 +131,8 @@ public interface GradleDistribution {
      */
     boolean isToolingApiLogsFailureOnCancel();
 
+    boolean isToolingApiMergesStderrIntoStdout();
+
     /**
      * Returns the logging output stream that this version logs build failures to when invoked via the tooling API.
      */

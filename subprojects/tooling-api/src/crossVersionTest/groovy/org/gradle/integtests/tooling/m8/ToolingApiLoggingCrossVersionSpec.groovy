@@ -116,8 +116,7 @@ project.logger.debug("debug logging");
 
         and:
         def errLogging
-        if (targetVersion.baseVersion >= GradleVersion.version("4.7")) {
-            // Handling of error log message changed
+        if (targetDist.toolingApiMergesStderrIntoStdout) {
             errLogging = out
         } else {
             errLogging = err
@@ -149,17 +148,12 @@ project.logger.debug("debug logging");
     private ExecutionResult runUsingCommandLine() {
         def executer = targetDist.executer(temporaryFolder, getBuildContext())
             .requireGradleDistribution()
-            .withTestConsoleAttached()
             .withCommandLineGradleOpts("-Dorg.gradle.deprecation.trace=false") //suppress deprecation stack trace
 
-        if (targetVersion.baseVersion >= GradleVersion.version("4.0")) {
+        if (targetDist.toolingApiMergesStderrIntoStdout) {
+            // Need to do the same for command-line execution
             executer.withArgument("--console=plain")
-        }
-
-        // We changed the test console system property value in 4.9
-        if (targetVersion.baseVersion >= GradleVersion.version("4.8")
-            && targetVersion.baseVersion < GradleVersion.version("4.9")) {
-            executer.withCommandLineGradleOpts("-Dorg.gradle.internal.console.test-console=both")
+            executer.withTestConsoleAttached()
         }
 
         return executer.run()

@@ -84,15 +84,15 @@ public class ConsoleConfigureAction {
             OutputStream originalStdOut = renderer.getOriginalStdOut();
             OutputStreamWriter outStr = new OutputStreamWriter(force ? originalStdOut : AnsiConsoleUtil.wrapOutputStream(originalStdOut));
             Console console = new AnsiConsole(outStr, outStr, renderer.getColourMap(), consoleMetaData, force);
-            renderer.addRichConsole(console, true, consoleMetaData.isStdErr(), consoleMetaData, verbose);
+            renderer.addRichConsole(console, consoleMetaData, verbose);
         } else if (consoleMetaData.isStdErr()) {
             // Only stderr is connected to a terminal
             OutputStream originalStdErr = renderer.getOriginalStdErr();
             OutputStreamWriter errStr = new OutputStreamWriter(force ? originalStdErr : AnsiConsoleUtil.wrapOutputStream(originalStdErr));
             Console console = new AnsiConsole(errStr, errStr, renderer.getColourMap(), consoleMetaData, force);
-            renderer.addRichConsole(console, false, true, consoleMetaData, verbose);
+            renderer.addRichConsole(console, consoleMetaData, verbose);
         } else {
-            renderer.addRichConsole(null, false, false, consoleMetaData, verbose);
+            renderer.addRichConsole(null, consoleMetaData, verbose);
         }
     }
 }
